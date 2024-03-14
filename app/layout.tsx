@@ -19,13 +19,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>
-        <ChakraProviders>
-          <Suspense fallback={<Loading />}>
-          {children}
-          </Suspense>
-        </ChakraProviders>
-        </body>
+      <body style={{ backgroundImage: "url('./bg.png')" }} className={inter.className}>
+        <div className="p-5 flex items-center justify-center h-screen w-full">
+          <ChakraProviders>
+            <Suspense fallback={<Loading />}>
+              {children}
+            </Suspense>
+          </ChakraProviders>
+        </div>
+      </body>
     </html>
   );
 }

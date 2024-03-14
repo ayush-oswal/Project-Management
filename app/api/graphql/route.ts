@@ -1,17 +1,21 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { graphql, GraphQLSchema } from 'graphql';
+import { graphql } from 'graphql';
 import schema from '@/Schema/schema'; // Import your existing GraphQL schema
 import ConnectDB from '@/Database';
 
-export const GET = async(req: NextApiRequest, res: NextApiResponse) => {
+
+export const POST = async(req: Request) => {
     try {
         // Execute the GraphQL query against the schema
+        const {source,variableValues} = await req.json()
 
         await ConnectDB();
 
         const result = await graphql({
-            schema: schema as GraphQLSchema, // Ensure correct type
-            source: `{ HelloWorld }`, // GraphQL query
+            schema,
+            // GraphQL query
+            source, 
+            variableValues
         });
 
         // Check for errors
