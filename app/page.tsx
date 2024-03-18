@@ -44,7 +44,7 @@ export default function Home() {
   };
 
   return (
-    <main className="m-auto p-5 bg-white opacity-70 rounded-md w-2/5">
+    <main className="p-5 mt-44 bg-white opacity-85 rounded-md w-full sm:w-3/5 max-w-md">
       <Toaster />
       <div className="flex flex-col gap-3">
         <div className="text-xl text-center">

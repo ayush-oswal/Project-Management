@@ -41,8 +41,18 @@ const employeeType = new GraphQLObjectType({
         projects : {
             type : new GraphQLList(projectType),
             resolve : async(parent,args)=>{
-                const allProjects = await Project.find({ _id: { $in: parent.projects } });
-                return allProjects;
+                const Projects = await Project.find({ _id: { $in: parent.projects } });
+                const sortedProjects = Projects.sort((a, b) => {
+                    // Define the order of status values
+                    const statusOrder: { [key: string]: number } = {
+                      'Not Started': 0,
+                      'In Progress': 1,
+                      'Completed': 2,
+                    };
+                    return statusOrder[a.status] - statusOrder[b.status];
+                  });
+              
+                return sortedProjects;
             }
         }
     })
@@ -68,9 +78,9 @@ const RootQuery = new GraphQLObjectType({
                 const sortedProjects = projects.sort((a, b) => {
                     // Define the order of status values
                     const statusOrder: { [key: string]: number } = {
-                      'not started': 0,
-                      'in progress': 1,
-                      'completed': 2,
+                      'Not Started': 0,
+                      'In Progress': 1,
+                      'Completed': 2,
                     };
                     return statusOrder[a.status] - statusOrder[b.status];
                   });
@@ -166,14 +176,13 @@ const mutation = new GraphQLObjectType({
                     client : args.client,
                     employees : args.employees
                 })
-                // const savedProject = await newProject.save();
-                // // Update each employee with the new project id
-                // await Employee.updateMany(
-                //     { name: { $in: args.employees } },
-                //     { $push: { projects: savedProject._id } }
-                // );
-                // return savedProject; 
-                return newProject; 
+                const savedProject = await newProject.save();
+                // Update each employee with the new project id
+                await Employee.updateMany(
+                    { name: { $in: args.employees } },
+                    { $addToSet: { projects: savedProject._id } }
+                );
+                return savedProject;  
             }
         },
         addComment : {
@@ -193,44 +202,72 @@ const mutation = new GraphQLObjectType({
                 return await project.save()
             }
         },
-        updateProject : {
-            type : projectType,
-            args : {
-                id : { type : new GraphQLNonNull(GraphQLID) },
-                title : { type: new GraphQLNonNull(GraphQLString) },
-                description : { type: new GraphQLNonNull(GraphQLString) },
-                status : { type : new GraphQLNonNull(GraphQLString) },
-                client : { type : new GraphQLNonNull(GraphQLString) },
-                employees : { type : new GraphQLNonNull( new GraphQLList(GraphQLString)) }
+        updateProject: {
+            type: projectType,
+            args: {
+              id: { type: new GraphQLNonNull(GraphQLID) },
+              title: { type: new GraphQLNonNull(GraphQLString) },
+              description: { type: new GraphQLNonNull(GraphQLString) },
+              status: { type: new GraphQLNonNull(GraphQLString) },
+              client: { type: new GraphQLNonNull(GraphQLString) },
+              employees: { type: new GraphQLNonNull(new GraphQLList(GraphQLString)) }
             },
-            resolve : async(parent,args) => {
-                return await Project.updateOne({ _id : args.id } , { $set : 
-                    {   
-                        title : args.title, 
-                        description : args.description,
-                        status : args.status,
-                        client : args.client,
-                        employees : args.employees  
-                    } 
-                })
+            resolve: async (parent, args) => {
+              try {
+                // Update the project
+                await Project.updateOne({ _id: args.id }, {
+                  $set: {
+                    title: args.title,
+                    description: args.description,
+                    status: args.status,
+                    client: args.client,
+                    employees: args.employees
+                  }
+                });
+          
+                // Remove project ID from employees who are not in the updated list
+                await Employee.updateMany(
+                  { projects: args.id }, // Select employees associated with the project
+                  { $pull: { projects: args.id } } // Remove project ID from their projects array
+                );
+          
+                // Add project ID to the updated list of employees
+                await Employee.updateMany(
+                  { name: { $in: args.employees } }, // Select employees in the updated list
+                  { $addToSet: { projects: args.id } } // Add project ID to their projects array
+                );
+          
+                // Return the updated project
+                return await Project.findById(args.id);
+              } catch (err) {
+                console.log(err);
+                throw new Error("Failed to update project.");
+              }
             }
-        },
-        deleteProject : {
-            type : GraphQLString,
-            args : {
-                id : { type : new GraphQLNonNull(GraphQLID) },
+          },
+          deleteProject: {
+            type: GraphQLString,
+            args: {
+              id: { type: new GraphQLNonNull(GraphQLID) },
             },
-            resolve : async(parent,args) => {
-                try{
-                    Project.deleteOne( { _id : args.id } )
-                    return "ok"
-                }
-                catch(err){
-                    console.log(err)
-                    return "Error"
-                }
+            resolve: async (parent, args) => {
+              try {
+                // Delete the project
+                await Project.deleteOne({ _id: args.id });
+          
+                // Remove project ID from all employees
+                await Employee.updateMany(
+                  { projects: args.id }, // Select employees associated with the project
+                  { $pull: { projects: args.id } } // Remove project ID from their projects array
+                );
+          
+                return "ok";
+              } catch (err) {
+                console.log(err);
+                throw new Error("Failed to delete project.");
+              }
             }
-        }
+          }
     }
 })
 

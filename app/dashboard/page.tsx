@@ -18,25 +18,37 @@ import {
   DrawerContent,
   DrawerCloseButton,
 } from "@chakra-ui/react";
+import toast, { Toaster } from 'react-hot-toast';
+import { useRouter } from "next/navigation";
+
 
 import { GET_ALL_PROJECTS, GET_EMPLOYEE } from '@/queries';
+import Link from 'next/link';
+import { ADD_CLIENT, ADD_EMPLOYEE } from '@/mutations';
+import ProjectCard from '@/Components/ProjectCard';
 
 
-
+interface Project {
+  id: string;
+  title: string;
+  status : string;
+}
 
 
 const Page = () => {
   const [name, setName] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [id, setId] = useState("");
-  const [projects, setProjects] = useState([]);
-  const [search, setSearch] = useState("");
+  const [projects, setProjects] = useState<Project[]>([]);
   const [isClientModalOpen, setClientModalOpen] = useState(false);
   const [isEmployeeModalOpen, setEmployeeModalOpen] = useState(false);
   const [clientName, setClientName] = useState("");
   const [employeeName, setEmployeeName] = useState("");
   const [employeePassword, setEmployeePassword] = useState("");
   const [isDrawerOpen, setDrawerOpen] = useState(false);
+  const [searchResults, setSearchResults] = useState<Project[]>([]);
+  const router = useRouter()
+
 
   useEffect(() => {
 
@@ -46,6 +58,7 @@ const Page = () => {
     setName(storedName || "");
     setIsAdmin(storedIsAdmin);
     setId(storedId || "");
+    if(!storedName) router.push("/") 
 
     async function getProjects() {
       if(storedIsAdmin){
@@ -83,32 +96,86 @@ const Page = () => {
   }, []);
 
 
-  const handleClientSubmit = () => {
-    // Handle client submission logic here
-    console.log("Client Name:", clientName);
-    setClientModalOpen(false);
-    setClientName("")
+  const handleClientSubmit = async() => {
+    try {
+      if (!clientName.trim()) {
+        toast("❌ Client name cannot be empty");
+        return;
+      }
+      console.log("Client Name:", clientName);
+      const response = await fetch("/api/graphql", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          source: ADD_CLIENT,
+          variableValues: {
+            name : clientName
+          }
+        }),
+      })
+      console.log(await response.json())
+      toast(`✅ Client ${clientName} added`)
+      setClientModalOpen(false);
+      setClientName("")
+    }
+    catch(err){
+      console.log(err)
+    }
   };
 
 
-  const handleEmployeeSubmit = () => {
-    // Handle employee submission logic here
-    console.log("Employee Name:", employeeName);
-    console.log("Employee Password:", employeePassword);
-    setEmployeeModalOpen(false);
-    setEmployeeName("")
-    setEmployeePassword("")
+  const handleEmployeeSubmit = async() => {
+    try{
+      if (!employeeName.trim()) {
+        toast("❌ Employee name cannot be empty");
+        return;
+      }
+      if (employeePassword.length < 4) {
+        toast("❌ Password must be at least 4 characters long");
+        return;
+      }
+      console.log("Employee Name:", employeeName);
+      console.log("Employee Password:", employeePassword);
+      const response = await fetch("/api/graphql", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          source: ADD_EMPLOYEE,
+          variableValues: {
+            name : employeeName,
+            password : employeePassword
+          }
+        }),
+      });
+      console.log(await response.json())
+      toast(`✅ Employee ${employeeName} added`)
+      setEmployeeModalOpen(false);
+      setEmployeeName("")
+      setEmployeePassword("")
+    }
+    catch(err){
+      console.log(err)
+    }
   };
 
-  //Implement search from blogit
 
-  const handleSearch = () => {
-
+  const handleSearch = (search:string) => {
+    console.log(search)
+    const filteredProjects : Project[] = projects.filter(project =>
+      project.title.toLowerCase().includes(search.toLowerCase())
+    );
+    setSearchResults(filteredProjects);
+    console.log(searchResults)
   }
 
   return (
-    <div className='w-full h-full flex flex-col bg-white p-4 rounded-md opacity-70'>
-      <div className={`w-full flex items-center ${isAdmin ? 'justify-between' : 'justify-center'}`}>
+    <div className='w-full min-h-95vh flex flex-col bg-white p-4 rounded-md opacity-85'>
+      <Toaster />
+      <div className={`fixed pr-20 z-50 w-full flex items-center ${isAdmin ? 'justify-between' : 'justify-center'}`}>
         <div className="md:hidden">
           {isAdmin && (
             <button className="block text-gray-500 m-2 focus:outline-none" onClick={() => setDrawerOpen(true)}>
@@ -139,19 +206,30 @@ const Page = () => {
             className='p-2 w-full box-border border-black rounded-md bg-slate-300'
             type='text'
             placeholder='Search'
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {handleSearch(e.target.value)}}
           />
         </div>
         {isAdmin && (
           <div className="hidden md:block">
-            <button className='m-2 p-2 bg-red-500 text-white rounded-md'>
+            <Link href={"/project"} className='m-2 p-2 bg-red-500 text-white rounded-md'>
               + New Project
-            </button>
+            </Link>
           </div>
         )}
       </div>
-      <div className='w-full'></div>
+        {/* render projectcard with colour based on status */}
+      <div className='w-full min-h-full p-10 pt-32 flex flex-wrap gap-6 justify-center'>
+      {(searchResults.length > 0 ? searchResults : projects).map(project => (
+          <Link key={project.id} href={`/project/${project.id}`}>
+              <ProjectCard id={project.id} title={project.title} status={project.status} />  
+          </Link>
+        ))}
+      </div>
+
+
+
+
+      
 
       {/* Drawer */}
       <Drawer
@@ -181,12 +259,9 @@ const Page = () => {
                 >
                   + Add Employee
                 </Button>
-                <Button
-                  colorScheme="red"
-                  className='m-2 p-2 rounded-md'
-                >
+                <Link href={"/project"} className='m-2 p-2 pr-3 pl-3 w-fit font-bold bg-red-500 text-white rounded-md block'>
                   + New Project
-                </Button>
+                </Link>
               </>
             )}
           </DrawerBody>

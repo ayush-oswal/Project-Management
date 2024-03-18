@@ -5,6 +5,7 @@ query GetAllProjects {
     projects {
       id
       title
+      status
     }
 }`
 
@@ -14,6 +15,11 @@ query GetProject($id: ID!) {
       id
       title
       description
+      updates{
+        name
+        content
+        createdAt
+      }
       status
       client
       employees
@@ -44,6 +50,7 @@ query GetEmployee($id: ID!) {
       projects {
         id
         title
+        status
       }
     }
 }`

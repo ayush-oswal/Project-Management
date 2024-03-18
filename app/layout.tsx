@@ -20,7 +20,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body style={{ backgroundImage: "url('./bg.png')" }} className={inter.className}>
-        <div className="p-5 flex items-center justify-center h-screen w-full">
+        <div className="p-5 m-auto no-scrollbar flex items-center justify-center h-full w-full">
           <ChakraProviders>
             <Suspense fallback={<Loading />}>
               {children}
